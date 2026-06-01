@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meta — Screening Agent</title>
+<style>
+  :root {
+    --bg:       #0d0f14;
+    --surface:  #161920;
+    --card:     #1c2030;
+    --border:   #272d3f;
+    --accent:   #1877f2;
+    --accent2:  #0d5fcc;
+    --green:    #22c55e;
+    --amber:    #f59e0b;
+    --red:      #ef4444;
+    --purple:   #8b5cf6;
+    --txt1:     #e8eaf2;
+    --txt2:     #8b93a8;
+    --txt3:     #4b5267;
+    --radius:   12px;
+    --font:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--txt1);
+    font-family: var(--font); font-size: 15px;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  input, select, button { font-family: var(--font); }
+
+  /* ── Setup Screen ───────────────────────────────── */
+  #setup {
+    width: 400px; padding: 40px 36px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; text-align: center;
+  }
+  .logo {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: var(--accent); display: flex; align-items: center;
+    justify-content: center; margin: 0 auto 20px; font-size: 22px;
+  }
+  #setup h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  #setup p  { font-size: 13px; color: var(--txt2); margin-bottom: 28px; line-height: 1.6; }
+  .field { text-align: left; margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 500;
+    color: var(--txt2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
+  .field input, .field select {
+    width: 100%; padding: 11px 14px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--txt1); font-size: 14px; outline: none;
+    transition: border .15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select option { background: var(--card); }
+  .btn-primary {
+    width: 100%; padding: 13px; background: var(--accent); color: #fff;
+    border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-top: 6px; transition: background .15s;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { background: var(--border); color: var(--txt3); cursor: not-allowed; }
+
+  /* ── Call Screen ────────────────────────────────── */
+  #call {
+    display: none; flex-direction: column;
+    width: 480px; height: 680px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .call-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--accent); display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;
+  }
+  .call-info { flex: 1; }
+  .call-name  { font-size: 15px; font-weight: 600; }
+  .call-sub   { font-size: 12px; color: var(--txt2); margin-top: 2px; }
+  .state-badge {
+    font-size: 11px; font-weight: 500; padding: 3px 10px;
+    border-radius: 100px; background: var(--card); color: var(--txt2);
+    border: 1px solid var(--border); transition: all .3s;
+  }
+  .state-badge.active { background: #1877f220; color: var(--accent); border-color: #1877f240; }
+  .state-badge.ended  { background: #22c55e18; color: var(--green); border-color: #22c55e30; }
+  .lang-pill {
+    font-size: 11px; padding: 3px 8px; border-radius: 100px;
+    background: var(--card); color: var(--txt2); border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  /* Transcript */
+  #transcript {
+    flex: 1; overflow-y: auto; padding: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+    scroll-behavior: smooth;
+  }
+  #transcript::-webkit-scrollbar { width: 4px; }
+  #transcript::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg { display: flex; gap: 10px; animation: fadeUp .25s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .msg.agent  { flex-direction: row; }
+  .msg.candidate { flex-direction: row-reverse; }
+
+  .msg-avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; margin-top: 2px;
+  }
+  .msg.agent .msg-avatar    { background: var(--accent); color: #fff; }
+  .msg.candidate .msg-avatar { background: var(--card); color: var(--txt2); border: 1px solid var(--border); }
+
+  .msg-bubble {
+    max-width: 80%; padding: 10px 14px; border-radius: 14px;
+    font-size: 14px; line-height: 1.55;
+  }
+  .msg.agent .msg-bubble {
+    background: var(--card); color: var(--txt1);
+    border-bottom-left-radius: 4px; border: 1px solid var(--border);
+  }
+  .msg.candidate .msg-bubble {
+    background: var(--accent); color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg-label { font-size: 10px; color: var(--txt3); margin-bottom: 4px; font-weight: 500; letter-spacing: .3px; }
+
+  /* Status bar */
+  .status-bar {
+    padding: 8px 20px; min-height: 32px;
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--txt3); flex-shrink: 0; }
+  .status-dot.active { background: var(--green); animation: pulse 1s infinite; }
+  .status-dot.processing { background: var(--amber); animation: pulse .6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+  .status-text { font-size: 12px; color: var(--txt2); }
+
+  /* Bottom controls */
+  .controls {
+    padding: 16px 20px 20px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  .hint { font-size: 12px; color: var(--txt3); text-align: center; }
+
+  #mic-btn {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .15s; position: relative;
+    outline: none; flex-shrink: 0;
+  }
+  #mic-btn:disabled { opacity: .4; cursor: not-allowed; }
+  #mic-btn.recording {
+    background: #ef444420; border-color: var(--red);
+    box-shadow: 0 0 0 8px #ef444415, 0 0 0 16px #ef44440a;
+    animation: ripple 1s infinite;
+  }
+  @keyframes ripple {
+    0%   { box-shadow: 0 0 0 0 #ef444440, 0 0 0 0 #ef444420; }
+    100% { box-shadow: 0 0 0 12px #ef444400, 0 0 0 24px #ef444400; }
+  }
+  #mic-btn svg { width: 26px; height: 26px; }
+  #mic-btn.recording svg { stroke: var(--red); }
+  #mic-btn:not(:disabled):not(.recording):hover {
+    background: var(--border); border-color: var(--accent);
+  }
+  #mic-btn:not(:disabled):not(.recording):active {
+    transform: scale(.95);
+  }
+
+  /* Waveform */
+  #waveform {
+    display: none; align-items: center; gap: 3px; height: 24px;
+  }
+  #waveform.visible { display: flex; }
+  .wave-bar {
+    width: 3px; background: var(--red); border-radius: 2px;
+    animation: wave var(--spd, .8s) ease-in-out infinite alternate;
+  }
+  @keyframes wave { from { height: 4px; } to { height: 20px; } }
+
+  /* Ended overlay */
+  .ended-card {
+    margin: 8px; padding: 16px; background: #22c55e12;
+    border: 1px solid #22c55e30; border-radius: 10px; text-align: center;
+  }
+  .ended-card h3 { font-size: 15px; color: var(--green); margin-bottom: 6px; }
+  .ended-card p  { font-size: 13px; color: var(--txt2); line-height: 1.6; }
+  .btn-restart {
+    margin-top: 12px; padding: 9px 20px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--txt1); font-size: 13px; cursor: pointer;
+  }
+  .btn-restart:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ── Setup Screen ──────────────────────────────────────────────────────────── -->
+<div id="setup">
+  <div class="logo">M</div>
+  <h1>Meta Screening Agent</h1>
+  <p>AI-powered first-round phone screening.<br>Supports English, Hindi & Hinglish.</p>
+
+  <div class="field">
+    <label>Candidate Name</label>
+    <input id="inp-name" type="text" placeholder="e.g. Priya Sharma" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label>Role</label>
+    <select id="inp-role">
+      <option value="swe">Software Engineer — L5</option>
+      <option value="recruiter">Technical Recruiter</option>
+    </select>
+  </div>
+
+  <button class="btn-primary" id="btn-start">Start Screening Call →</button>
+  <p style="margin-top:16px; font-size:12px; color:var(--txt3)">
+    Requires microphone access · Works in Chrome / Edge / Safari
+  </p>
+</div>
+
+<!-- ── Call Screen ────────────────────────────────────────────────────────────── -->
+<div id="call">
+  <div class="call-header">
+    <div class="avatar">M</div>
+    <div class="call-info">
+      <div class="call-name">Maya · Meta Recruiting</div>
+      <div class="call-sub" id="call-role">Software Engineer L5</div>
+    </div>
+    <span class="lang-pill" id="lang-pill">🌐 EN</span>
+    <span class="state-badge active" id="state-badge">Greeting</span>
+  </div>
+
+  <div id="transcript"></div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-text" id="status-text">Connecting…</span>
+  </div>
+
+  <div class="controls">
+    <div id="waveform">
+      <div class="wave-bar" style="--spd:.5s"></div>
+      <div class="wave-bar" style="--spd:.7s"></div>
+      <div class="wave-bar" style="--spd:.4s"></div>
+      <div class="wave-bar" style="--spd:.9s"></div>
+      <div class="wave-bar" style="--spd:.6s"></div>
+      <div class="wave-bar" style="--spd:.8s"></div>
+      <div class="wave-bar" style="--spd:.5s"></div>
+    </div>
+
+    <button id="mic-btn" disabled title="Hold to speak">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="11" rx="3"/>
+        <path d="M5 10a7 7 0 0 0 14 0M12 19v4M8 23h8"/>
+      </svg>
+    </button>
+
+    <div class="hint" id="mic-hint">Hold to speak · Release to send</div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let ws, mediaRecorder, stream, chunks = [];
+let isRecording = false, isPlaying = false, callEnded = false;
+let mimeType = "audio/webm";
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+
+function setStatus(msg, type = "idle") {
+  $("status-text").textContent = msg;
+  const dot = $("status-dot");
+  dot.className = "status-dot" + (type === "active" ? " active" : type === "processing" ? " processing" : "");
+}
+
+function setStateBadge(state) {
+  const badge = $("state-badge");
+  const labels = {
+    GREETING: "Greeting", AVAILABILITY: "Availability", SCREENING_Q1: "Question 1",
+    SCREENING_Q2: "Question 2", SCREENING_Q3: "Question 3", SCREENING_Q4: "Question 4",
+    NEXT_STEPS: "Next Steps", CLOSE: "Closing", ENDED: "Completed"
+  };
+  badge.textContent = labels[state] || state;
+  badge.className = "state-badge" + (state === "ENDED" ? " ended" : " active");
+}
+
+function setLang(lang) {
+  const flags = { en: "🌐 EN", hi: "🇮🇳 HI", hinglish: "🇮🇳 HI/EN" };
+  $("lang-pill").textContent = flags[lang] || "🌐 EN";
+}
+
+function addMessage(type, text) {
+  const el = document.createElement("div");
+  el.className = `msg ${type}`;
+  const initials = type === "agent" ? "M" : "C";
+  el.innerHTML = `
+    <div class="msg-avatar">${initials}</div>
+    <div>
+      <div class="msg-label">${type === "agent" ? "Maya" : "You"}</div>
+      <div class="msg-bubble">${text}</div>
+    </div>`;
+  $("transcript").appendChild(el);
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+}
+
+async function playAudio(b64, mime) {
+  return new Promise((resolve) => {
+    isPlaying = true;
+    const mimeType = mime || "audio/mpeg";
+    const audio = new Audio(`data:${mimeType};base64,${b64}`);
+    audio.onended = () => { isPlaying = false; resolve(); };
+    audio.onerror = (e) => { console.warn("Audio play error", e); isPlaying = false; resolve(); };
+    audio.play().catch((e) => { console.warn("Audio play catch", e); isPlaying = false; resolve(); });
+  });
+}
+
+function enableMic() {
+  $("mic-btn").disabled = false;
+  $("mic-hint").textContent = "Hold to speak · Release to send";
+  setStatus("Ready — hold the mic button to speak", "active");
+}
+
+function disableMic(msg = "Processing…") {
+  $("mic-btn").disabled = true;
+  $("mic-hint").textContent = msg;
+}
+
+// ── Recording ──────────────────────────────────────────────────────────────────
+async function startRecording() {
+  if (isRecording || isPlaying || callEnded) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // Detect supported mime type
+    for (const mt of ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"]) {
+      if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt.split(";")[0]; break; }
+    }
+
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType + (mimeType === "audio/webm" ? ";codecs=opus" : "") });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = sendAudio;
+    mediaRecorder.start(200); // collect in 200ms chunks
+
+    isRecording = true;
+    $("mic-btn").classList.add("recording");
+    $("waveform").classList.add("visible");
+    setStatus("Recording…", "active");
+  } catch (err) {
+    setStatus("Microphone access denied — check browser permissions", "");
+    console.error(err);
+  }
+}
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  $("mic-btn").classList.remove("recording");
+  $("waveform").classList.remove("visible");
+  if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+async function sendAudio() {
+  if (!chunks.length) return;
+  const blob = new Blob(chunks, { type: mimeType });
+  const buf  = await blob.arrayBuffer();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    disableMic("Sending…");
+    ws.send(buf);
+  }
+  chunks = [];
+}
+
+// ── Mic Button Events ──────────────────────────────────────────────────────────
+const micBtn = $("mic-btn");
+
+// Touch (mobile)
+micBtn.addEventListener("touchstart", e => { e.preventDefault(); startRecording(); }, { passive: false });
+micBtn.addEventListener("touchend",   e => { e.preventDefault(); stopRecording();  }, { passive: false });
+
+// Mouse (desktop)
+micBtn.addEventListener("mousedown", startRecording);
+micBtn.addEventListener("mouseup",   stopRecording);
+micBtn.addEventListener("mouseleave", () => { if (isRecording) stopRecording(); });
+
+// Spacebar shortcut
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && e.target === document.body && !isRecording && !$("mic-btn").disabled) {
+    e.preventDefault(); startRecording();
+  }
+});
+document.addEventListener("keyup", e => {
+  if (e.code === "Space" && isRecording) { e.preventDefault(); stopRecording(); }
+});
+
+// ── WebSocket ──────────────────────────────────────────────────────────────────
+function connect(name, role) {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    setStatus("Connected — waiting for Maya…", "processing");
+    ws.send(JSON.stringify({ candidate_name: name, role, mime_type: mimeType }));
+  };
+
+  ws.onmessage = async e => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === "agent") {
+      addMessage("agent", msg.speech);
+      setStateBadge(msg.state);
+      setLang(msg.language);
+      disableMic("Maya is speaking…");
+      setStatus("Maya is speaking…", "processing");
+      await playAudio(msg.audio, msg.mime);
+      if (msg.ended) {
+        callEnded = true;
+        showEnded(name, msg.state);
+      } else {
+        enableMic();
+      }
+    }
+
+    else if (msg.type === "candidate") {
+      addMessage("candidate", msg.text);
+      setLang(msg.language);
+    }
+
+    else if (msg.type === "status") {
+      setStatus(msg.msg, "processing");
+    }
+
+    else if (msg.type === "error") {
+      setStatus("⚠ " + msg.msg, "");
+      enableMic();
+    }
+
+    else if (msg.type === "pong") { /* heartbeat */ }
+  };
+
+  ws.onerror = () => setStatus("Connection error — please refresh", "");
+  ws.onclose = () => {
+    if (!callEnded) setStatus("Disconnected — refresh to reconnect", "");
+  };
+
+  // Heartbeat
+  setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ping" }));
+    }
+  }, 30000);
+}
+
+// ── Call Ended ─────────────────────────────────────────────────────────────────
+function showEnded(name, state) {
+  disableMic("Call ended");
+  setStatus("Call ended", "");
+  $("state-badge").textContent = "Ended";
+  $("state-badge").className = "state-badge ended";
+
+  // Determine why the call ended based on state
+  const completedScreening = ["NEXT_STEPS", "CLOSE", "ENDED"].includes(state);
+  const wrongPerson        = state === "GREETING";
+  const notAvailable       = state === "AVAILABILITY";
+  const droppedMid         = ["SCREENING_Q1","SCREENING_Q2","SCREENING_Q3","SCREENING_Q4"].includes(state);
+  const screened_out       = state === "SCREENED_OUT";
+
+  let icon, heading, body;
+
+  if (completedScreening) {
+    icon    = "✓";
+    heading = "Screening Complete";
+    body    = `Thank you, ${name}. The hiring team will review your profile and be in touch within 3–5 business days. Please keep an eye on your inbox.`;
+    $("state-badge").style.background = "#22c55e18";
+    $("state-badge").style.color      = "var(--green)";
+  } else if (screened_out) {
+    icon    = "—";
+    heading = "Thank you for your time";
+    body    = `Thank you, ${name}. Based on the role requirements, the team will be in touch if there is a suitable opportunity. We appreciate you speaking with us today.`;
+    $("state-badge").style.background = "var(--card)";
+    $("state-badge").style.color      = "var(--txt2)";
+  } else if (wrongPerson) {
+    icon    = "✗";
+    heading = "Wrong Contact";
+    body    = `We called the wrong person this time. No action needed.`;
+    $("state-badge").style.background = "var(--card)";
+    $("state-badge").style.color      = "var(--txt2)";
+  } else if (notAvailable) {
+    icon    = "↩";
+    heading = "Callback Scheduled";
+    body    = `${name} was not available right now. The team will follow up at the preferred time shared during the call.`;
+    $("state-badge").style.background = "#d2992218";
+    $("state-badge").style.color      = "var(--amber)";
+  } else if (droppedMid) {
+    icon    = "⚠";
+    heading = "Call Ended Early";
+    body    = `The call ended before all questions were completed. The team will decide next steps based on what was captured.`;
+    $("state-badge").style.background = "#d2992218";
+    $("state-badge").style.color      = "var(--amber)";
+  } else {
+    icon    = "—";
+    heading = "Call Ended";
+    body    = `The call has ended. The team will review and be in touch if appropriate.`;
+    $("state-badge").style.background = "var(--card)";
+    $("state-badge").style.color      = "var(--txt2)";
+  }
+
+  const endCard = document.createElement("div");
+  endCard.className = "ended-card";
+  endCard.style.borderColor = completedScreening ? "#22c55e30"
+    : screened_out || wrongPerson ? "var(--color-border-tertiary)"
+    : "#d2992230";
+  endCard.style.background = completedScreening ? "#22c55e12"
+    : screened_out || wrongPerson ? "var(--card)"
+    : "#d2992212";
+  endCard.innerHTML = `
+    <h3 style="color:${completedScreening ? 'var(--green)' : screened_out || wrongPerson ? 'var(--txt2)' : 'var(--amber)'}">${icon} ${heading}</h3>
+    <p>${body}</p>
+    <button class="btn-restart" onclick="location.reload()">Start New Call →</button>`;
+  $("transcript").appendChild(endCard);
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+}
+
+// ── Setup Flow ─────────────────────────────────────────────────────────────────
+$("btn-start").addEventListener("click", async () => {
+  const name = $("inp-name").value.trim();
+  const role = $("inp-role").value;
+  if (!name) { $("inp-name").focus(); return; }
+
+  $("btn-start").disabled = true;
+  $("btn-start").textContent = "Starting…";
+
+  // Show call screen
+  $("setup").style.display = "none";
+  $("call").style.display = "flex";
+  $("call-role").textContent = role === "swe" ? "Software Engineer — L5" : "Technical Recruiter";
+
+  // Update candidate avatar
+  document.querySelectorAll(".msg.candidate .msg-avatar").forEach(a => {
+    a.textContent = name.charAt(0).toUpperCase();
+  });
+
+  connect(name, role);
+});
+
+// Enter key on name field
+$("inp-name").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("btn-start").click();
+});
+</script>
+</body>
+</html>

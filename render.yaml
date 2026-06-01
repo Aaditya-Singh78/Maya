@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: meta-screening-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+    healthCheckPath: /health
